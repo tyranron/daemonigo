@@ -11,15 +11,18 @@ import (
 	"syscall"
 )
 
-// Name of environment variable used to distinguish parent and child processes.
-const EnvVarName = "_DAEMONIGO"
-// Value of environment variable used to distinguish parent and child processes.
-const EnvVarValue = "1"
+// Name of environment variable used to distinguish
+// parent and daemonized processes.
+var EnvVarName = "_DAEMONIGO"
+// Value of environment variable used to distinguish
+// parent and daemonized processes.
+var EnvVarValue = "1"
 
-const (
-	fileMask = 0644
-	umask    = 027
-)
+// Value of file mask for PID-file.
+var PidFileMask = 0644
+// Value of umask for daemonized process.
+var Umask = 027
+
 
 var (
 	Name    = "daemon"
@@ -39,7 +42,7 @@ func Daemonize(workDir string) (isDeamon bool, err error) {
 		}
 	}
 	if isDeamon {
-		syscall.Umask(int(umask))
+		syscall.Umask(int(Umask))
 		if _, err = syscall.Setsid(); err != nil {
 			err = fmt.Errorf("%s: setsid failed, reason -> %s", err.Error())
 			return
@@ -67,7 +70,7 @@ func Daemonize(workDir string) (isDeamon bool, err error) {
 
 func lockPidFile() (pidFile *os.File, err error) {
 	var file *os.File
-	file, err = os.OpenFile(PidFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileMask)
+	file, err = os.OpenFile(PidFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, PidFileMask)
 	if err != nil {
 		return
 	}
