@@ -117,7 +117,7 @@ func PrepareCommand(path string) (cmd *exec.Cmd) {
 	cmd = exec.Command(path)
 	cmd.Env = append(
 		os.Environ(),
-		fmt.Sprintf("%s=%s", envVarName, envVarValue),
+		fmt.Sprintf("%s=%s", EnvVarName, EnvVarValue),
 	)
 	return
 }

@@ -11,13 +11,12 @@ import (
 	"syscall"
 )
 
-// Name of enviroment variable used to distinguish parent and child processes.
+// Name of environment variable used to distinguish parent and child processes.
 const EnvVarName = "_DAEMONIGO"
+// Value of environment variable used to distinguish parent and child processes.
+const EnvVarValue = "1"
 
 const (
-	envVarName  = "_GO_DAEMON"
-	envVarValue = "1"
-
 	fileMask = 0644
 	umask    = 027
 )
@@ -32,7 +31,7 @@ var (
 
 func Daemonize(workDir string) (isDeamon bool, err error) {
 	const errLoc = "daemonic.Daemonize()"
-	isDeamon = os.Getenv(envVarName) == envVarValue
+	isDeamon = os.Getenv(EnvVarName) == EnvVarValue
 	if len(workDir) != 0 {
 		if err = os.Chdir(workDir); err != nil {
 			err = fmt.Errorf("%s: changing working directory failed, reason -> %s", err.Error())
