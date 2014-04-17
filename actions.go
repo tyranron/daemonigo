@@ -16,7 +16,7 @@ var actions map[string]func() = map[string]func(){
 		case err != nil:
 			printStatusErr(err)
 		case isRunning:
-			fmt.Println(Name + " is already started and running now")
+			fmt.Println(AppName + " is already started and running now")
 		default:
 			Start()
 		}
@@ -26,7 +26,7 @@ var actions map[string]func() = map[string]func(){
 		case err != nil:
 			printStatusErr(err)
 		case !isRunning:
-			fmt.Println(Name + " is NOT running or already stopped")
+			fmt.Println(AppName + " is NOT running or already stopped")
 		default:
 			Stop(process)
 
@@ -37,9 +37,9 @@ var actions map[string]func() = map[string]func(){
 		case err != nil:
 			printStatusErr(err)
 		case !isRunning:
-			fmt.Println(Name + " is NOT running")
+			fmt.Println(AppName + " is NOT running")
 		default:
-			fmt.Printf(Name+" is running with PID %d\n", process.Pid)
+			fmt.Printf(AppName+" is running with PID %d\n", process.Pid)
 		}
 	},
 	"restart": func() {
@@ -56,12 +56,12 @@ var actions map[string]func() = map[string]func(){
 }
 
 func printStatusErr(e error) {
-	fmt.Println("Checking status of " + Name + " failed")
+	fmt.Println("Checking status of " + AppName + " failed")
 	fmt.Println("Details:", e.Error())
 }
 
 func Stop(process *os.Process) {
-	fmt.Print("Stopping " + Name + "...")
+	fmt.Print("Stopping " + AppName + "...")
 	if err := process.Signal(os.Interrupt); err != nil {
 		failed(err)
 		return
@@ -80,7 +80,7 @@ func Stop(process *os.Process) {
 }
 
 func Start() {
-	fmt.Print("Starting " + Name + "...")
+	fmt.Print("Starting " + AppName + "...")
 	path, err := filepath.Abs(AppPath)
 	if err != nil {
 		failed(err)

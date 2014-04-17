@@ -23,25 +23,28 @@ var PidFileMask = 0644
 // Value of umask for daemonized process.
 var Umask = 027
 
+// Application name to daemonize.
+// Used for printing in daemonization results.
+var AppName = "daemon"
+// Path to application executable.
+// Used only for start/restart actions.
+var AppPath = "./" + filepath.Base(os.Args[0])
 
 var (
-	Name    = "daemon"
 	PidFile = "daemon.pid"
-	AppPath = "./" + filepath.Base(os.Args[0])
-
 	pidFile *os.File
 )
 
-func Daemonize(workDir string) (isDeamon bool, err error) {
-	const errLoc = "daemonic.Daemonize()"
-	isDeamon = os.Getenv(EnvVarName) == EnvVarValue
+func Daemonize(workDir string) (isDaemon bool, err error) {
+	const errLoc = "daemonigo.Daemonize()"
+	isDaemon = os.Getenv(EnvVarName) == EnvVarValue
 	if len(workDir) != 0 {
 		if err = os.Chdir(workDir); err != nil {
 			err = fmt.Errorf("%s: changing working directory failed, reason -> %s", err.Error())
 			return
 		}
 	}
-	if isDeamon {
+	if isDaemon {
 		syscall.Umask(int(Umask))
 		if _, err = syscall.Setsid(); err != nil {
 			err = fmt.Errorf("%s: setsid failed, reason -> %s", err.Error())
