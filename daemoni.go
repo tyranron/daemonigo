@@ -19,7 +19,7 @@ var EnvVarName = "_DAEMONIGO"
 var EnvVarValue = "1"
 
 // Value of file mask for PID-file.
-var PidFileMask = 0644
+var PidFileMask os.FileMode = 0644
 // Value of umask for daemonized process.
 var Umask = 027
 
@@ -30,17 +30,18 @@ var AppName = "daemon"
 // Used only for start/restart actions.
 var AppPath = "./" + filepath.Base(os.Args[0])
 
-var (
-	PidFile = "daemon.pid"
-	pidFile *os.File
-)
+// Relative path from working directory to PID-file.
+var PidFile = "daemon.pid"
+// Pointer to PID-file to keep file-lock alive.
+var pidFile *os.File
+
 
 func Daemonize(workDir string) (isDaemon bool, err error) {
 	const errLoc = "daemonigo.Daemonize()"
 	isDaemon = os.Getenv(EnvVarName) == EnvVarValue
 	if len(workDir) != 0 {
 		if err = os.Chdir(workDir); err != nil {
-			err = fmt.Errorf("%s: changing working directory failed, reason -> %s", err.Error())
+			err = fmt.Errorf("%s: changing working directory failed, reason -> %s", errLoc, err.Error())
 			return
 		}
 	}
