@@ -66,8 +66,11 @@ func failed(e error) {
 	fmt.Println("Details:", e.Error())
 }
 
+// Stops daemon process.
+//
+// This function can also be used when writing own daemon actions.
 func Stop(process *os.Process) {
-	fmt.Print("Stopping " + AppName + "...")
+	fmt.Print("Stopping %s...", AppName)
 	if err := process.Signal(os.Interrupt); err != nil {
 		failed(err)
 		return
@@ -85,42 +88,43 @@ func Stop(process *os.Process) {
 	}
 }
 
+// Starts daemon process and waits 1 second.
+// If daemonized process keeps running after this second
+// then process seems to be successfully started.
+//
+// This function can also be used when writing own daemon actions.
 func Start() {
-	fmt.Print("Starting " + AppName + "...")
+	fmt.Printf("Starting %s...", AppName)
 	path, err := filepath.Abs(AppPath)
 	if err != nil {
 		failed(err)
 		return
 	}
-	cmd := PrepareCommand(path)
-	if err = cmd.Start(); err != nil {
-		failed(err)
-		return
-	}
-	ch := make(chan bool)
-	go func() {
-		time.Sleep(1 * time.Second)
-		fmt.Println("OK")
-		ch <- true
-	}()
-	go func() {
-		err = cmd.Wait()
-		if err == nil {
-			err = fmt.Errorf("daemon stopped and not running")
-		}
-		failed(err)
-		ch <- true
-	}()
-	<-ch
-}
-
-func PrepareCommand(path string) (cmd *exec.Cmd) {
-	cmd = exec.Command(path)
+	cmd := exec.Command(path)
 	cmd.Env = append(
 		os.Environ(),
 		fmt.Sprintf("%s=%s", EnvVarName, EnvVarValue),
 	)
-	return
+	if err = cmd.Start(); err != nil {
+		failed(err)
+		return
+	}
+	select {
+	case <-func() chan bool {
+		ch := make(chan bool)
+		go func() {
+			err = cmd.Wait()
+			if err == nil {
+				err = fmt.Errorf("%s stopped and not running", AppName)
+			}
+			failed(err)
+			ch <- true
+		}()
+		return ch
+	}():
+	case <-time.After(time.Second):
+		fmt.Println("OK")
+	}
 }
 
 // Sets new daemon action with given name or overrides previous.
