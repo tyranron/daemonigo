@@ -8,11 +8,11 @@ import (
 )
 
 func main() {
-	switch isDaemon, err := daemon.Daemonize("./"); {
+	switch isDaemon, err := daemon.Daemonize(); {
 	case !isDaemon:
 		return
 	case err != nil:
-		log.Fatal("Error: could not start daemon, reason -> %s\n", err.Error())
+		log.Fatalf("Error: could not start daemon, reason -> %s", err.Error())
 		return
 	}
 

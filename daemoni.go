@@ -1,3 +1,4 @@
+// Package daemonigo provides a simple wrapper to daemonize applications.
 package daemonigo
 
 import (
@@ -18,29 +19,33 @@ var EnvVarName = "_DAEMONIGO"
 // parent and daemonized processes.
 var EnvVarValue = "1"
 
+// Path to daemon working directory.
+// If not set, the current user directory will be used.
+var WorkDir = ""
 // Value of file mask for PID-file.
 var PidFileMask os.FileMode = 0644
 // Value of umask for daemonized process.
 var Umask = 027
 
 // Application name to daemonize.
-// Used for printing in daemonization results.
+// Used for printing in daemon actions.
 var AppName = "daemon"
 // Path to application executable.
 // Used only for start/restart actions.
 var AppPath = "./" + filepath.Base(os.Args[0])
 
-// Relative path from working directory to PID-file.
+// Absolute or relative path from working directory to PID file.
 var PidFile = "daemon.pid"
-// Pointer to PID-file to keep file-lock alive.
+// Pointer to PID file to keep file-lock alive.
 var pidFile *os.File
 
-
-func Daemonize(workDir string) (isDaemon bool, err error) {
+// This function wraps application with daemonization.
+// Returns isDaemon value to distinguish parent and daemonized processes.
+func Daemonize() (isDaemon bool, err error) {
 	const errLoc = "daemonigo.Daemonize()"
 	isDaemon = os.Getenv(EnvVarName) == EnvVarValue
-	if len(workDir) != 0 {
-		if err = os.Chdir(workDir); err != nil {
+	if len(WorkDir) != 0 {
+		if err = os.Chdir(WorkDir); err != nil {
 			err = fmt.Errorf("%s: changing working directory failed, reason -> %s", errLoc, err.Error())
 			return
 		}
@@ -48,11 +53,11 @@ func Daemonize(workDir string) (isDaemon bool, err error) {
 	if isDaemon {
 		syscall.Umask(int(Umask))
 		if _, err = syscall.Setsid(); err != nil {
-			err = fmt.Errorf("%s: setsid failed, reason -> %s", err.Error())
+			err = fmt.Errorf("%s: setsid failed, reason -> %s", errLoc, err.Error())
 			return
 		}
 		if pidFile, err = lockPidFile(); err != nil {
-			err = fmt.Errorf("%s: locking PID file failed, reason -> %s: ", err.Error())
+			err = fmt.Errorf("%s: locking PID file failed, reason -> %s", errLoc, err.Error())
 		}
 	} else {
 		if !flag.Parsed() {
@@ -72,6 +77,8 @@ func Daemonize(workDir string) (isDaemon bool, err error) {
 	return
 }
 
+// Locks PID file with a file lock.
+// Keeps PID file open until applications exits.
 func lockPidFile() (pidFile *os.File, err error) {
 	var file *os.File
 	file, err = os.OpenFile(PidFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, PidFileMask)
@@ -100,6 +107,10 @@ func lockPidFile() (pidFile *os.File, err error) {
 	return file, err
 }
 
+// Unlocks PID file and closes it.
+//
+// This function can be useful for graceful restarts or other
+// untrivial scenarios, but usually there is no need to use it.
 func UnlockPidFile() {
 	if pidFile != nil {
 		syscall.Flock(int(pidFile.Fd()), syscall.LOCK_UN)
@@ -108,6 +119,7 @@ func UnlockPidFile() {
 }
 
 func Status() (isRunning bool, pr *os.Process, e error) {
+	const errLoc = "daemonigo.Status()"
 	var (
 		err  error
 		file *os.File
@@ -116,7 +128,7 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 	file, err = os.Open(PidFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			e = fmt.Errorf("could not open PID file: " + err.Error())
+			e = fmt.Errorf("%s: could not open PID file, reason -> %s", errLoc, err.Error())
 		}
 		return
 	}
@@ -126,7 +138,7 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 		if err == nil {
 			syscall.Flock(fd, syscall.LOCK_UN)
 		} else {
-			e = fmt.Errorf("PID file locking attempt failed: " + err.Error())
+			e = fmt.Errorf("%s: PID file locking attempt failed, reason -> %s", errLoc, err.Error())
 		}
 		return
 	}
@@ -136,17 +148,17 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 	content := make([]byte, 128)
 	n, err = file.Read(content)
 	if err != nil && err != io.EOF {
-		e = fmt.Errorf("could not read from PID file: " + err.Error())
+		e = fmt.Errorf("%s: could not read from PID file, reason -> %s", errLoc, err.Error())
 		return
 	}
 	pid, err = strconv.Atoi(string(content[:n]))
 	if n < 1 || err != nil {
-		e = fmt.Errorf("bad PID format, PID file is possibly corrupted")
+		e = fmt.Errorf("%s: bad PID format, PID file is possibly corrupted", errLoc)
 		return
 	}
 	pr, err = os.FindProcess(pid)
 	if err != nil {
-		e = fmt.Errorf("cannot find process by PID: " + err.Error())
+		e = fmt.Errorf("%s: cannot find process by PID, reason -> %s", errLoc, err.Error())
 	}
 
 	return
