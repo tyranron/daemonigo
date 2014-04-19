@@ -70,7 +70,7 @@ func failed(e error) {
 //
 // This function can also be used when writing own daemon actions.
 func Stop(process *os.Process) {
-	fmt.Print("Stopping %s...", AppName)
+	fmt.Printf("Stopping %s...", AppName)
 	if err := process.Signal(os.Interrupt); err != nil {
 		failed(err)
 		return
