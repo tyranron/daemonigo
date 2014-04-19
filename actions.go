@@ -5,12 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 	"time"
 )
 
-var actMux *sync.Mutex = &sync.Mutex{}
-var actions map[string]func() = map[string]func(){
+// Daemon default actions.
+// Can be changed with SetAction() and RemoveAction() functions.
+var actions = map[string]func(){
 	"start": func() {
 		switch isRunning, _, err := Status(); {
 		case err != nil:
@@ -29,7 +29,6 @@ var actions map[string]func() = map[string]func(){
 			fmt.Println(AppName + " is NOT running or already stopped")
 		default:
 			Stop(process)
-
 		}
 	},
 	"status": func() {
@@ -39,7 +38,7 @@ var actions map[string]func() = map[string]func(){
 		case !isRunning:
 			fmt.Println(AppName + " is NOT running")
 		default:
-			fmt.Printf(AppName+" is running with PID %d\n", process.Pid)
+			fmt.Printf("%s is running with PID %d\n", AppName, process.Pid)
 		}
 	},
 	"restart": func() {
@@ -55,8 +54,15 @@ var actions map[string]func() = map[string]func(){
 	},
 }
 
+// Helper function to print errors of Status() function.
 func printStatusErr(e error) {
 	fmt.Println("Checking status of " + AppName + " failed")
+	fmt.Println("Details:", e.Error())
+}
+
+// Helper function to operate with errors in actions.
+func failed(e error) {
+	fmt.Println("FAILED")
 	fmt.Println("Details:", e.Error())
 }
 
@@ -108,11 +114,6 @@ func Start() {
 	<-ch
 }
 
-func failed(e error) {
-	fmt.Println("FAILED")
-	fmt.Println("Details:", e.Error())
-}
-
 func PrepareCommand(path string) (cmd *exec.Cmd) {
 	cmd = exec.Command(path)
 	cmd.Env = append(
@@ -122,14 +123,24 @@ func PrepareCommand(path string) (cmd *exec.Cmd) {
 	return
 }
 
-func HandleFunc(pattern string, handler func()) {
-	actMux.Lock()
-	defer actMux.Unlock()
-	if pattern == "" {
-		panic("daemonic: pattern cannot be empty")
+// Sets new daemon action with given name or overrides previous.
+//
+// This function is not concurrent safe, so you must synchronize
+// its calls in case of usage in multiple goroutines.
+func SetAction(name string, action func()) {
+	if name == "" {
+		panic("daemonigo.SetAction(): name cannot be empty")
 	}
-	if handler == nil {
-		panic("daemonic: nil handler")
+	if action == nil {
+		panic("daemonigo.SetAction(): action cannot be nil")
 	}
-	actions[pattern] = handler
+	actions[name] = action
+}
+
+// Removes daemon action with given name.
+//
+// This function is not concurrent safe, so you must synchronize
+// its calls in case of usage in multiple goroutines.
+func RemoveAction(name string) {
+	delete(actions, name)
 }

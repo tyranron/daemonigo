@@ -28,10 +28,10 @@ var PidFileMask os.FileMode = 0644
 var Umask = 027
 
 // Application name to daemonize.
-// Used for printing in daemon actions.
+// Used for printing in default daemon actions.
 var AppName = "daemon"
 // Path to application executable.
-// Used only for start/restart actions.
+// Used only for default start/restart actions.
 var AppPath = "./" + filepath.Base(os.Args[0])
 
 // Absolute or relative path from working directory to PID file.
@@ -118,6 +118,8 @@ func UnlockPidFile() {
 	}
 }
 
+// Checks status of daemonized process.
+// Can be used in daemon actions to perate with daemonized process.
 func Status() (isRunning bool, pr *os.Process, e error) {
 	const errLoc = "daemonigo.Status()"
 	var (
