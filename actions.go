@@ -3,8 +3,6 @@ package daemonigo
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"time"
 )
 
@@ -18,7 +16,7 @@ var actions = map[string]func(){
 		case isRunning:
 			fmt.Println(AppName + " is already started and running now")
 		default:
-			Start()
+			start()
 		}
 	},
 	"stop": func() {
@@ -50,7 +48,7 @@ var actions = map[string]func(){
 		if isRunning {
 			Stop(process)
 		}
-		Start()
+		start()
 	},
 }
 
@@ -88,41 +86,16 @@ func Stop(process *os.Process) {
 	}
 }
 
-// Starts daemon process and waits 1 second.
-// If daemonized process keeps running after this second
-// then process seems to be successfully started.
-//
-// This function can also be used when writing own daemon actions.
-func Start() {
+// Helper function which wraps Start() with printing
+// for using in daemon default actions.
+func start() {
 	fmt.Printf("Starting %s...", AppName)
-	path, err := filepath.Abs(AppPath)
-	if err != nil {
+	switch started, err := Start(1); {
+	case err != nil:
 		failed(err)
-		return
-	}
-	cmd := exec.Command(path)
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("%s=%s", EnvVarName, EnvVarValue),
-	)
-	if err = cmd.Start(); err != nil {
-		failed(err)
-		return
-	}
-	select {
-	case <-func() chan bool {
-		ch := make(chan bool)
-		go func() {
-			err = cmd.Wait()
-			if err == nil {
-				err = fmt.Errorf("%s stopped and not running", AppName)
-			}
-			failed(err)
-			ch <- true
-		}()
-		return ch
-	}():
-	case <-time.After(time.Second):
+	case !started:
+		failed(fmt.Errorf("%s stopped and not runing", AppName))
+	default:
 		fmt.Println("OK")
 	}
 }

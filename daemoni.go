@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
+	"os/exec"
 )
 
 // Name of environment variable used to distinguish
@@ -163,5 +165,42 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 		e = fmt.Errorf("%s: cannot find process by PID, reason -> %s", errLoc, err.Error())
 	}
 
+	return
+}
+
+// Starts daemon process and waits timeout number of seconds.
+// If daemonized process keeps running after timeout seconds passed
+// then process seems to be successfully started.
+//
+// Note, that this function can return success=false and e=nil.
+// That's a case when application successfully started,
+// but stops before timeout seconds passed.
+//
+// This function can also be used when writing your own daemon actions.
+func Start(timeout uint8) (success bool, e error) {
+	path, e := filepath.Abs(AppPath)
+	if e != nil {
+		return
+	}
+	cmd := exec.Command(path)
+	cmd.Env = append(
+		os.Environ(),
+		fmt.Sprintf("%s=%s", EnvVarName, EnvVarValue),
+	)
+	if e = cmd.Start(); e != nil {
+		return
+	}
+	select {
+	case <-func() chan bool {
+		ch := make(chan bool)
+		go func() {
+			e = cmd.Wait()
+			ch <- true
+		}()
+		return ch
+	}():
+	case <-time.After(time.Duration(timeout) * time.Second):
+		success = true
+	}
 	return
 }
