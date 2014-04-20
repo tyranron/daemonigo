@@ -204,3 +204,24 @@ func Start(timeout uint8) (success bool, e error) {
 	}
 	return
 }
+
+// Stops daemon process.
+// Sends signal os.Interrupt to daemonized process.
+//
+// This function can also be used when writing your own daemon actions.
+func Stop(process *os.Process) (e error){
+	if err := process.Signal(os.Interrupt); err != nil {
+		e = fmt.Errorf("daemonigo.Stop(): failed to send interrupt signal to %s, reason -> %s", AppName, err.Error())
+		return
+	}
+	for {
+		time.Sleep(200 * time.Millisecond)
+		switch isRunning, _, err := Status(); {
+		case err != nil:
+			e = fmt.Errorf("daemonigo.Stop(): checking status of %s failed, reason -> %s", AppName, err.Error())
+			return
+		case !isRunning:
+			return
+		}
+	}
+}

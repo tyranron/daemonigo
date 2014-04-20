@@ -3,7 +3,6 @@ package daemonigo
 import (
 	"fmt"
 	"os"
-	"time"
 )
 
 // Daemon default actions.
@@ -26,7 +25,7 @@ var actions = map[string]func(){
 		case !isRunning:
 			fmt.Println(AppName + " is NOT running or already stopped")
 		default:
-			Stop(process)
+			stop(process)
 		}
 	},
 	"status": func() {
@@ -46,7 +45,7 @@ var actions = map[string]func(){
 			return
 		}
 		if isRunning {
-			Stop(process)
+			stop(process)
 		}
 		start()
 	},
@@ -58,31 +57,20 @@ func printStatusErr(e error) {
 	fmt.Println("Details:", e.Error())
 }
 
-// Helper function to operate with errors in actions.
+// Helper function to operate with errors printing in actions.
 func failed(e error) {
 	fmt.Println("FAILED")
 	fmt.Println("Details:", e.Error())
 }
 
-// Stops daemon process.
-//
-// This function can also be used when writing own daemon actions.
-func Stop(process *os.Process) {
+// Helper function which wraps Stop() with printing
+// for using in daemon default actions.
+func stop(process *os.Process) {
 	fmt.Printf("Stopping %s...", AppName)
-	if err := process.Signal(os.Interrupt); err != nil {
+	if err := Stop(process); err != nil {
 		failed(err)
-		return
-	}
-	for {
-		time.Sleep(200 * time.Millisecond)
-		switch isRunning, _, err := Status(); {
-		case err != nil:
-			printStatusErr(err)
-			return
-		case !isRunning:
-			fmt.Println("OK")
-			return
-		}
+	} else {
+		fmt.Println("OK")
 	}
 }
 
