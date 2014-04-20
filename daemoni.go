@@ -172,14 +172,12 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 // If daemonized process keeps running after timeout seconds passed
 // then process seems to be successfully started.
 //
-// Note, that this function can return success=false and e=nil.
-// That's a case when application successfully started,
-// but stops before timeout seconds passed.
-//
 // This function can also be used when writing your own daemon actions.
-func Start(timeout uint8) (success bool, e error) {
-	path, e := filepath.Abs(AppPath)
-	if e != nil {
+func Start(timeout uint8) (e error) {
+	const errLoc = "daemonigo.Start()"
+	path, err := filepath.Abs(AppPath)
+	if err != nil {
+		e = fmt.Errorf("%s: failed to resolve absolute path of %s, reason -> %s", errLoc, AppName, err.Error())
 		return
 	}
 	cmd := exec.Command(path)
@@ -187,20 +185,24 @@ func Start(timeout uint8) (success bool, e error) {
 		os.Environ(),
 		fmt.Sprintf("%s=%s", EnvVarName, EnvVarValue),
 	)
-	if e = cmd.Start(); e != nil {
+	if err = cmd.Start(); err != nil {
+		e = fmt.Errorf("%s: failed to start %s, reason -> %s", errLoc, AppName, err.Error())
 		return
 	}
 	select {
 	case <-func() chan bool {
 		ch := make(chan bool)
 		go func() {
-			e = cmd.Wait()
+			if err := cmd.Wait(); err!= nil {
+				e = fmt.Errorf("%s: %s running failed, reason -> %s", errLoc, AppName, err.Error())
+			} else {
+				e = fmt.Errorf("%s: %s stopped and not running", errLoc, AppName)
+			}
 			ch <- true
 		}()
 		return ch
 	}():
 	case <-time.After(time.Duration(timeout) * time.Second):
-		success = true
 	}
 	return
 }

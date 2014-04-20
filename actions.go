@@ -78,12 +78,9 @@ func stop(process *os.Process) {
 // for using in daemon default actions.
 func start() {
 	fmt.Printf("Starting %s...", AppName)
-	switch started, err := Start(1); {
-	case err != nil:
+	if err := Start(1); err != nil {
 		failed(err)
-	case !started:
-		failed(fmt.Errorf("%s stopped and not runing", AppName))
-	default:
+	} else {
 		fmt.Println("OK")
 	}
 }
