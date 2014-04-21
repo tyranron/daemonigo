@@ -6,17 +6,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	"os/exec"
 )
 
 // Name of environment variable used to distinguish
 // parent and daemonized processes.
 var EnvVarName = "_DAEMONIGO"
+
 // Value of environment variable used to distinguish
 // parent and daemonized processes.
 var EnvVarValue = "1"
@@ -24,20 +25,24 @@ var EnvVarValue = "1"
 // Path to daemon working directory.
 // If not set, the current user directory will be used.
 var WorkDir = ""
+
 // Value of file mask for PID-file.
 var PidFileMask os.FileMode = 0644
+
 // Value of umask for daemonized process.
 var Umask = 027
 
 // Application name to daemonize.
 // Used for printing in default daemon actions.
 var AppName = "daemon"
+
 // Path to application executable.
 // Used only for default start/restart actions.
 var AppPath = "./" + filepath.Base(os.Args[0])
 
 // Absolute or relative path from working directory to PID file.
 var PidFile = "daemon.pid"
+
 // Pointer to PID file to keep file-lock alive.
 var pidFile *os.File
 
@@ -193,7 +198,7 @@ func Start(timeout uint8) (e error) {
 	case <-func() chan bool {
 		ch := make(chan bool)
 		go func() {
-			if err := cmd.Wait(); err!= nil {
+			if err := cmd.Wait(); err != nil {
 				e = fmt.Errorf("%s: %s running failed, reason -> %s", errLoc, AppName, err.Error())
 			} else {
 				e = fmt.Errorf("%s: %s stopped and not running", errLoc, AppName)
@@ -211,7 +216,7 @@ func Start(timeout uint8) (e error) {
 // Sends signal os.Interrupt to daemonized process.
 //
 // This function can also be used when writing your own daemon actions.
-func Stop(process *os.Process) (e error){
+func Stop(process *os.Process) (e error) {
 	if err := process.Signal(os.Interrupt); err != nil {
 		e = fmt.Errorf("daemonigo.Stop(): failed to send interrupt signal to %s, reason -> %s", AppName, err.Error())
 		return
