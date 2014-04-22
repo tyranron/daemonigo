@@ -22,6 +22,20 @@ func main() {
 	}
 	// From now we are running in daemon process.
 
+	// Starting listen tcp on 8080 port.
+	listener, hasPrev, err := previousListener()
+	if err != nil {
+		if hasPrev {
+			log.Fatalf("main(): failed to resume listener, reason -> %s", err.Error())
+		}
+		if listener, err = net.Listen("tcp", ":8080"); err != nil {
+			log.Fatalf("main(): failed to listen, reason -> %s", err.Error())
+		}
+	}
+
+	// Listen OS signals in separate goroutine.
+	go listenSignals(listener)
+
 	// Creating a simple one-page http server.
 	waiter := new(sync.WaitGroup)
 	s := &http.Server{Addr: ":8080"}
@@ -41,7 +55,7 @@ func main() {
 // Helper function which checks environment variables
 // for socket descriptors and starts listening on it if any.
 func previousListener() (l net.Listener, hasPrev bool, e error) {
-	const errLoc = "main.Listener()"
+	const errLoc = "main.previousListener()"
 	var fd uintptr
 	if _, e = fmt.Sscan(os.Getenv(envVarName), &fd); e != nil {
 		e = fmt.Errorf("%s: could not read file descriptor from environment, reason -> %s", errLoc, e.Error())
@@ -59,7 +73,7 @@ func previousListener() (l net.Listener, hasPrev bool, e error) {
 		return
 	}
 	if e = syscall.Close(int(fd)); e != nil {
-		e = fmt.Errorf("%s: failed to close file descriptor, reason -> %s", errLoc, e.Error())
+		e = fmt.Errorf("%s: failed to close old file descriptor, reason -> %s", errLoc, e.Error())
 	}
 	return
 }
@@ -81,15 +95,47 @@ func listenSignals(l net.Listener) {
 		syscall.SIGQUIT, syscall.SIGTERM,
 		syscall.SIGUSR1, syscall.SIGUSR2,
 	)
-	switch sig := <-sigChan; sig {
-	case syscall.SIGHUP:
-		reload(l)
-	default:
-		l.Close()
+	for {
+		switch sig := <-sigChan; sig {
+		case syscall.SIGHUP:
+			if err := reload(l); err != nil {
+				log.Println(err.Error())
+			}
+		default:
+			l.Close()
+		}
 	}
 }
 
+func reload(l net.Listener) error {
+	const errLoc = "main.reload()"
 
-func reload(l net.Listener) {
+	// Making duplicate for socket descriptor
+	// to use them in child process.
+	file, err := (s.listener.(*net.TCPListener)).File()
+	if err != nil {
+		return fmt.Errorf("%s: failed to get file of listener, reason -> %s", errLoc, err.Error())
+
+	}
+	fd, err := syscall.Dup(int(file.Fd()))
+	if err != nil {
+		return fmt.Errorf("%s: failed to dup(2) listener, reason -> %s", errLoc, err.Error())
+	}
+	if err := os.Setenv(envVarName, fmt.Sprint(fd)); err != nil {
+		return fmt.Errorf("%s: failed to write fd into environment variable, reason -> %s", errLoc, err.Error())
+	}
+
+	// Unlock PID file to start normally child process.
+	daemon.UnlockPidFile()
+
+	// Start child process.
+	cmd := exec.Command(daemon.AppPath)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("%s: failed to start child process, reason -> %s", errLoc, err.Error())
+	}
+
+	// Close current listener.
 	l.Close()
+
+	return nil
 }
