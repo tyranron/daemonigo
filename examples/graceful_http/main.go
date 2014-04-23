@@ -1,4 +1,17 @@
-// An example of graceful http server with zero-downtime reload.
+// An example of graceful HTTP server with zero-downtime reload.
+//
+//
+// Testing
+//
+// To test server you can use "test" daemon option. Just run command:
+//		./graceful test
+// Now you can play into another terminal with commands
+//		./graceful reload
+//		./graceful restart
+// and you will see output like:
+//		...................
+//		...............E...
+// Where "." means successful request and "E" means failed request.
 package main
 
 import (
