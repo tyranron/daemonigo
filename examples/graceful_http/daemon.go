@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	daemon "github.com/tyranron/daemonigo"
+	"net/http"
 	"syscall"
 	"time"
 )
@@ -22,7 +23,7 @@ func init() {
 		fmt.Println("Details:", e.Error())
 	}
 
-	// Defining new daemon actions.
+	// Implementation of reload action.
 	daemon.SetAction("reload", func() {
 		isRunning, process, err := daemon.Status()
 		if err != nil {
@@ -66,5 +67,23 @@ func init() {
 				printStatusErr(fmt.Errorf("checking new process timed out, see application logs"))
 			}
 		}
+	})
+
+	// A simple program to test server during reloads.
+	daemon.SetAction("test", func() {
+		errs, oks := 0, 0
+		for i := 0; i < 10000; i++ {
+			if r, err := http.Get("http://127.0.0.1:8080/"); err != nil {
+				print("E")
+				errs++
+			} else {
+				print(".")
+				oks++
+				r.Body.Close()
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		println("\n---------------------------")
+		println("Succeed:", oks, "Errors:", errs)
 	})
 }

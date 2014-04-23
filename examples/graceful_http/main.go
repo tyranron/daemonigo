@@ -14,6 +14,8 @@ import (
 	"syscall"
 )
 
+// Name of environment variable, which holds
+// file descriptor of listener socket connection for child process.
 const envVarName = "_GO_FD"
 
 func main() {
@@ -113,6 +115,7 @@ func listenSignals(l net.Listener) {
 	}
 }
 
+// Implements zero-downtime application reload.
 func reload(l net.Listener) error {
 	const errLoc = "main.reload()"
 
