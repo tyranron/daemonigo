@@ -1,12 +1,17 @@
-// An example of graceful http server.
+// An example of graceful http server with zero-downtime reload.
 package main
 
 import (
+	"fmt"
 	daemon "github.com/tyranron/daemonigo"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 const envVarName = "_GO_FD"
@@ -37,12 +42,13 @@ func main() {
 	go listenSignals(listener)
 
 	// Creating a simple one-page http server.
+	PID := syscall.Getpid()
 	waiter := new(sync.WaitGroup)
 	s := &http.Server{Addr: ":8080"}
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		waiter.Add(1)
 		defer waiter.Done()
-		w.Write("Hi! I am graceful http server!")
+		w.Write([]byte(fmt.Sprintf("Hi! I am graceful http server! My PID is %d", PID)))
 	})
 	if err := s.Serve(listener); err != nil && !isErrClosing(err) {
 		log.Fatalf("main(): failed to serve listener, reason -> %s", err.Error())
@@ -112,7 +118,7 @@ func reload(l net.Listener) error {
 
 	// Making duplicate for socket descriptor
 	// to use them in child process.
-	file, err := (s.listener.(*net.TCPListener)).File()
+	file, err := (l.(*net.TCPListener)).File()
 	if err != nil {
 		return fmt.Errorf("%s: failed to get file of listener, reason -> %s", errLoc, err.Error())
 
