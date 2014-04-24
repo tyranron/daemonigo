@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"syscall"
 	"time"
+	"flag"
 )
 
 func init() {
@@ -70,7 +71,12 @@ func init() {
 	})
 
 	// A simple program to test server during reloads.
+	var ms uint
+	flag.UintVar(&ms, "ms", 10, "frequency of requests")
 	daemon.SetAction("test", func() {
+		if ms == 0 {
+			ms = 10
+		}
 		errs, oks := 0, 0
 		for i := 0; i < 10000; i++ {
 			if r, err := http.Get("http://127.0.0.1:8080/"); err != nil {
@@ -81,7 +87,7 @@ func init() {
 				oks++
 				r.Body.Close()
 			}
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(time.Duration(ms) * time.Millisecond)
 		}
 		println("\n---------------------------")
 		println("Succeed:", oks, "Errors:", errs)
