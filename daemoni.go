@@ -67,6 +67,16 @@ func Daemonize() (isDaemon bool, err error) {
 			err = fmt.Errorf("%s: locking PID file failed, reason -> %s", errLoc, err.Error())
 		}
 	} else {
+		flag.Usage = func() {
+			arr := make([]string, 0, len(actions))
+			for k, _ := range actions {
+				arr = append(arr, k)
+			}
+			fmt.Fprintf(os.Stderr, "Usage: %s {%s}\n",
+				os.Args[0], strings.Join(arr, "|"),
+			)
+			flag.PrintDefaults()
+		}
 		if !flag.Parsed() {
 			flag.Parse()
 		}
@@ -74,11 +84,7 @@ func Daemonize() (isDaemon bool, err error) {
 		if exist {
 			action()
 		} else {
-			arr := make([]string, 0, len(actions))
-			for k, _ := range actions {
-				arr = append(arr, k)
-			}
-			fmt.Println("Usage: " + os.Args[0] + " {" + strings.Join(arr, "|") + "}")
+			flag.Usage()
 		}
 	}
 	return

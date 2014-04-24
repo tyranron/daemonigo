@@ -72,7 +72,7 @@ func init() {
 
 	// A simple program to test server during reloads.
 	var ms uint
-	flag.UintVar(&ms, "ms", 10, "frequency of requests")
+	flag.UintVar(&ms, "ms", 10, "frequency of requests in milliseconds, must be positive integer")
 	daemon.SetAction("test", func() {
 		if ms == 0 {
 			ms = 10
