@@ -1,12 +1,12 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	daemon "github.com/tyranron/daemonigo"
 	"net/http"
 	"syscall"
 	"time"
-	"flag"
 )
 
 func init() {
@@ -79,7 +79,7 @@ func init() {
 		}
 		errs, oks := 0, 0
 		for i := 0; i < 10000; i++ {
-			if r, err := http.Get("http://127.0.0.1:8080/"); err != nil {
+			if r, err := http.Get("http://127.0.0.1:8888"); err != nil {
 				print("E")
 				errs++
 			} else {

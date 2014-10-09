@@ -1,6 +1,20 @@
 // An example of graceful HTTP server with zero-downtime reload.
 //
 //
+// Overview
+//
+// Simple graceful HTTP server that runs on 8888 port.
+//
+//
+// Idea
+//
+// The idea of zero-downtime reload is to reuse socket descriptor in
+// new process: parent daemon process duplicates (by dup(2)) socket of
+// its listener, spawns new child daemon process and gives descriptor
+// of socket to child with environment variable.
+// After child daemon process succeeds to listen on parent socket, it sends
+// signal to parent daemon process to stop to listen.
+//
 // Testing
 //
 // To test server you can use "test" daemon option. Just run command:
@@ -12,6 +26,10 @@
 //		...................
 //		...............E...
 // Where "." means successful request and "E" means failed request.
+//
+// By default test application makes request every 10 ms.
+// You can change frequency of requests by "-ms" flag, like:
+//		./grace -ms=1 test
 package main
 
 import (
@@ -25,6 +43,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // Name of environment variable, which holds
@@ -42,14 +61,21 @@ func main() {
 	}
 	// From now we are running in daemon process.
 
-	// Starting listen tcp on 8080 port.
+	// Starting listen tcp on 8888 port.
 	listener, hasPrev, err := previousListener()
 	if err != nil {
 		if hasPrev {
 			log.Fatalf("main(): failed to resume listener, reason -> %s", err.Error())
 		}
-		if listener, err = net.Listen("tcp", ":8080"); err != nil {
+		if listener, err = net.Listen("tcp", ":8888"); err != nil {
 			log.Fatalf("main(): failed to listen, reason -> %s", err.Error())
+		}
+	}
+
+	// If was started by "reload" option.
+	if hasPrev {
+		if err := syscall.Kill(os.Getppid(), syscall.SIGUSR1); err != nil {
+			log.Printf("main(): failed to notify parent daemon procces, reason -> %s", err.Error())
 		}
 	}
 
@@ -59,7 +85,7 @@ func main() {
 	// Creating a simple one-page http server.
 	PID := syscall.Getpid()
 	waiter := new(sync.WaitGroup)
-	s := &http.Server{Addr: ":8080"}
+	s := &http.Server{Addr: ":8888"}
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		waiter.Add(1)
 		defer waiter.Done()
@@ -137,7 +163,6 @@ func reload(l net.Listener) error {
 	file, err := (l.(*net.TCPListener)).File()
 	if err != nil {
 		return fmt.Errorf("%s: failed to get file of listener, reason -> %s", errLoc, err.Error())
-
 	}
 	fd, err := syscall.Dup(int(file.Fd()))
 	if err != nil {
@@ -156,8 +181,35 @@ func reload(l net.Listener) error {
 		return fmt.Errorf("%s: failed to start child process, reason -> %s", errLoc, err.Error())
 	}
 
-	// Close current listener.
-	l.Close()
+	select {
+	// Waiting for notification from child process that it starts successfully.
+	// In real application it's better to move generation of chan for this case
+	// before calling cmd.Start() to be sure to catch signal in any case.
+	case <-func() chan struct{} {
+		sig, ch := make(chan os.Signal), make(chan struct{})
+		signal.Notify(sig, syscall.SIGUSR1)
+		go func() {
+			<-sig
+			ch <- struct{}{}
+		}()
+		return ch
+	}():
+		// Close current listener (stop server in fact).
+		l.Close()
+	// If child process stopped without sending signal.
+	case <-func() chan struct{} {
+		ch := make(chan struct{})
+		go func() {
+			cmd.Wait()
+			ch <- struct{}{}
+		}()
+		return ch
+	}():
+		err = fmt.Errorf("%s: child process stopped unexpectably", errLoc)
+	// Timeout for waiting signal from child process.
+	case <-time.After(10 * time.Second):
+		err = fmt.Errorf("%s: child process is not responding, closing by timeout", errLoc)
+	}
 
-	return nil
+	return err
 }
