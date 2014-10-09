@@ -1,4 +1,26 @@
 // A simple echo server implementation from net.Listener official documentation.
+//
+//
+// Overview
+//
+// Simple echo server that runs on 2000 port.
+// Uses all default actions of daemonigo package.
+//
+//
+// Build
+//
+// Simply with go build tool:
+//		go build -o .echoserv examples/echo_server/*
+//
+//
+// Usage
+//
+// To start server:
+//		./echoserv start
+// To stop server:
+//		./echoserv stop
+// To restart server:
+//		./echoserv restart
 package main
 
 import (
