@@ -3,7 +3,7 @@
 ## v0.3.0 (2014-12-10)
 
 - Added notify_parent example
-- Added `daemonigo.StartCommand` function
+- Added `daemonigo.StartCommand()` function
 - Reformatted code to max line width 80 symbols
 
 
