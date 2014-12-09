@@ -51,7 +51,7 @@ var pidFile *os.File
 func Daemonize() (isDaemon bool, err error) {
 	const errLoc = "daemonigo.Daemonize()"
 	isDaemon = os.Getenv(EnvVarName) == EnvVarValue
-	if len(WorkDir) != 0 {
+	if WorkDir != "" {
 		if err = os.Chdir(WorkDir); err != nil {
 			err = fmt.Errorf("%s: changing working directory failed, reason -> %s", errLoc, err.Error())
 			return
@@ -179,6 +179,23 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 	return
 }
 
+// TODO: description
+func StartDaemonCommand() (*exec.Cmd, error) {
+	const errLoc = "daemonigo.StartDaemonCommand()"
+	path, err := filepath.Abs(AppPath)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"%s: failed to resolve absolute path of %s, reason -> %s",
+			errLoc, AppName, err.Error(),
+		)
+	}
+	cmd := exec.Command(path)
+	cmd.Env = append(
+		os.Environ(), fmt.Sprintf("%s=%s", EnvVarName, EnvVarValue),
+	)
+	return cmd, nil
+}
+
 // Starts daemon process and waits timeout number of seconds.
 // If daemonized process keeps running after timeout seconds passed
 // then process seems to be successfully started.
@@ -186,28 +203,32 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 // This function can also be used when writing your own daemon actions.
 func Start(timeout uint8) (e error) {
 	const errLoc = "daemonigo.Start()"
-	path, err := filepath.Abs(AppPath)
+	cmd, err := StartDaemonCommand()
 	if err != nil {
-		e = fmt.Errorf("%s: failed to resolve absolute path of %s, reason -> %s", errLoc, AppName, err.Error())
-		return
+		return fmt.Errorf(
+			"%s: failed to create daemon start command, reason -> %s",
+			errLoc, err.Error(),
+		)
 	}
-	cmd := exec.Command(path)
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("%s=%s", EnvVarName, EnvVarValue),
-	)
 	if err = cmd.Start(); err != nil {
-		e = fmt.Errorf("%s: failed to start %s, reason -> %s", errLoc, AppName, err.Error())
-		return
+		return fmt.Errorf(
+			"%s: failed to start %s, reason -> %s",
+			errLoc, AppName, err.Error(),
+		)
 	}
 	select {
 	case <-func() chan bool {
 		ch := make(chan bool)
 		go func() {
 			if err := cmd.Wait(); err != nil {
-				e = fmt.Errorf("%s: %s running failed, reason -> %s", errLoc, AppName, err.Error())
+				e = fmt.Errorf(
+					"%s: %s running failed, reason -> %s",
+					errLoc, AppName, err.Error(),
+				)
 			} else {
-				e = fmt.Errorf("%s: %s stopped and not running", errLoc, AppName)
+				e = fmt.Errorf(
+					"%s: %s stopped and not running", errLoc, AppName,
+				)
 			}
 			ch <- true
 		}()

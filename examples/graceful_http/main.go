@@ -57,7 +57,6 @@ func main() {
 		return
 	case err != nil:
 		log.Fatalf("main(): could not start daemon, reason -> %s", err.Error())
-		return
 	}
 	// From now we are running in daemon process.
 
