@@ -64,7 +64,9 @@ func main() {
 	listener, hasPrev, err := previousListener()
 	if err != nil {
 		if hasPrev {
-			log.Fatalf("main(): failed to resume listener, reason -> %s", err.Error())
+			log.Fatalf(
+				"main(): failed to resume listener, reason -> %s", err.Error(),
+			)
 		}
 		if listener, err = net.Listen("tcp", ":8888"); err != nil {
 			log.Fatalf("main(): failed to listen, reason -> %s", err.Error())
@@ -74,7 +76,10 @@ func main() {
 	// If was started by "reload" option.
 	if hasPrev {
 		if err := syscall.Kill(os.Getppid(), syscall.SIGUSR1); err != nil {
-			log.Printf("main(): failed to notify parent daemon procces, reason -> %s", err.Error())
+			log.Printf(
+				"main(): failed to notify parent daemon procces, reason -> %s",
+				err.Error(),
+			)
 		}
 	}
 
@@ -84,14 +89,17 @@ func main() {
 	// Creating a simple one-page http server.
 	PID := syscall.Getpid()
 	waiter := new(sync.WaitGroup)
-	s := &http.Server{Addr: ":8888"}
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		waiter.Add(1)
 		defer waiter.Done()
-		w.Write([]byte(fmt.Sprintf("Hi! I am graceful http server! My PID is %d", PID)))
+		w.Write([]byte(
+			fmt.Sprintf("Hi! I am graceful http server! My PID is %d", PID),
+		))
 	})
-	if err := s.Serve(listener); err != nil && !isErrClosing(err) {
-		log.Fatalf("main(): failed to serve listener, reason -> %s", err.Error())
+	if err := http.Serve(listener, nil); err != nil && !isErrClosing(err) {
+		log.Fatalf(
+			"main(): failed to serve listener, reason -> %s", err.Error(),
+		)
 	}
 
 	// Waiting all requests to be finished.
@@ -104,22 +112,33 @@ func previousListener() (l net.Listener, hasPrev bool, e error) {
 	const errLoc = "main.previousListener()"
 	var fd uintptr
 	if _, e = fmt.Sscan(os.Getenv(envVarName), &fd); e != nil {
-		e = fmt.Errorf("%s: could not read file descriptor from environment, reason -> %s", errLoc, e.Error())
+		e = fmt.Errorf(
+			"%s: could not read file descriptor from environment, reason -> %s",
+			errLoc, e.Error(),
+		)
 		return
 	}
 	hasPrev = true
 	if l, e = net.FileListener(os.NewFile(fd, "parent socket")); e != nil {
-		e = fmt.Errorf("%s: could not listen on old file descriptor, reason -> %s", errLoc, e.Error())
+		e = fmt.Errorf(
+			"%s: could not listen on old file descriptor, reason -> %s",
+			errLoc, e.Error(),
+		)
 		return
 	}
 	switch l.(type) {
-	case *net.TCPListener, *net.UnixListener:
+	case *net.TCPListener:
 	default:
-		e = fmt.Errorf("%s: file descriptor is %T not *net.TCPListener or *net.UnixListener", errLoc, l)
+		e = fmt.Errorf(
+			"%s: file descriptor is %T not *net.TCPListener", errLoc, l,
+		)
 		return
 	}
 	if e = syscall.Close(int(fd)); e != nil {
-		e = fmt.Errorf("%s: failed to close old file descriptor, reason -> %s", errLoc, e.Error())
+		e = fmt.Errorf(
+			"%s: failed to close old file descriptor, reason -> %s",
+			errLoc, e.Error(),
+		)
 	}
 	return
 }
@@ -161,14 +180,22 @@ func reload(l net.Listener) error {
 	// to use them in child process.
 	file, err := (l.(*net.TCPListener)).File()
 	if err != nil {
-		return fmt.Errorf("%s: failed to get file of listener, reason -> %s", errLoc, err.Error())
+		return fmt.Errorf(
+			"%s: failed to get file of listener, reason -> %s",
+			errLoc, err.Error(),
+		)
 	}
 	fd, err := syscall.Dup(int(file.Fd()))
 	if err != nil {
-		return fmt.Errorf("%s: failed to dup(2) listener, reason -> %s", errLoc, err.Error())
+		return fmt.Errorf(
+			"%s: failed to dup(2) listener, reason -> %s", errLoc, err.Error(),
+		)
 	}
 	if err := os.Setenv(envVarName, fmt.Sprint(fd)); err != nil {
-		return fmt.Errorf("%s: failed to write fd into environment variable, reason -> %s", errLoc, err.Error())
+		return fmt.Errorf(
+			"%s: failed to write fd into environment variable, reason -> %s",
+			errLoc, err.Error(),
+		)
 	}
 
 	// Unlock PID file to start normally child process.
@@ -177,7 +204,10 @@ func reload(l net.Listener) error {
 	// Start child process.
 	cmd := exec.Command(daemon.AppPath)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("%s: failed to start child process, reason -> %s", errLoc, err.Error())
+		return fmt.Errorf(
+			"%s: failed to start child process, reason -> %s",
+			errLoc, err.Error(),
+		)
 	}
 
 	select {
@@ -207,7 +237,9 @@ func reload(l net.Listener) error {
 		err = fmt.Errorf("%s: child process stopped unexpectably", errLoc)
 	// Timeout for waiting signal from child process.
 	case <-time.After(10 * time.Second):
-		err = fmt.Errorf("%s: child process is not responding, closing by timeout", errLoc)
+		err = fmt.Errorf(
+			"%s: child process is not responding, closing by timeout", errLoc,
+		)
 	}
 
 	return err

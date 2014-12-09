@@ -53,18 +53,26 @@ func Daemonize() (isDaemon bool, err error) {
 	isDaemon = os.Getenv(EnvVarName) == EnvVarValue
 	if WorkDir != "" {
 		if err = os.Chdir(WorkDir); err != nil {
-			err = fmt.Errorf("%s: changing working directory failed, reason -> %s", errLoc, err.Error())
+			err = fmt.Errorf(
+				"%s: changing working directory failed, reason -> %s",
+				errLoc, err.Error(),
+			)
 			return
 		}
 	}
 	if isDaemon {
 		syscall.Umask(int(Umask))
 		if _, err = syscall.Setsid(); err != nil {
-			err = fmt.Errorf("%s: setsid failed, reason -> %s", errLoc, err.Error())
+			err = fmt.Errorf(
+				"%s: setsid failed, reason -> %s", errLoc, err.Error(),
+			)
 			return
 		}
 		if pidFile, err = lockPidFile(); err != nil {
-			err = fmt.Errorf("%s: locking PID file failed, reason -> %s", errLoc, err.Error())
+			err = fmt.Errorf(
+				"%s: locking PID file failed, reason -> %s",
+				errLoc, err.Error(),
+			)
 		}
 	} else {
 		flag.Usage = func() {
@@ -94,7 +102,9 @@ func Daemonize() (isDaemon bool, err error) {
 // Keeps PID file open until applications exits.
 func lockPidFile() (pidFile *os.File, err error) {
 	var file *os.File
-	file, err = os.OpenFile(PidFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, PidFileMask)
+	file, err = os.OpenFile(
+		PidFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, PidFileMask,
+	)
 	if err != nil {
 		return
 	}
@@ -143,17 +153,25 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 	file, err = os.Open(PidFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			e = fmt.Errorf("%s: could not open PID file, reason -> %s", errLoc, err.Error())
+			e = fmt.Errorf(
+				"%s: could not open PID file, reason -> %s",
+				errLoc, err.Error(),
+			)
 		}
 		return
 	}
 	defer file.Close()
 	fd := int(file.Fd())
-	if err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != syscall.EWOULDBLOCK {
+	if err = syscall.Flock(
+		fd, syscall.LOCK_EX|syscall.LOCK_NB,
+	); err != syscall.EWOULDBLOCK {
 		if err == nil {
 			syscall.Flock(fd, syscall.LOCK_UN)
 		} else {
-			e = fmt.Errorf("%s: PID file locking attempt failed, reason -> %s", errLoc, err.Error())
+			e = fmt.Errorf(
+				"%s: PID file locking attempt failed, reason -> %s",
+				errLoc, err.Error(),
+			)
 		}
 		return
 	}
@@ -163,17 +181,24 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 	content := make([]byte, 128)
 	n, err = file.Read(content)
 	if err != nil && err != io.EOF {
-		e = fmt.Errorf("%s: could not read from PID file, reason -> %s", errLoc, err.Error())
+		e = fmt.Errorf(
+			"%s: could not read from PID file, reason -> %s",
+			errLoc, err.Error(),
+		)
 		return
 	}
 	pid, err = strconv.Atoi(string(content[:n]))
 	if n < 1 || err != nil {
-		e = fmt.Errorf("%s: bad PID format, PID file is possibly corrupted", errLoc)
+		e = fmt.Errorf(
+			"%s: bad PID format, PID file is possibly corrupted", errLoc,
+		)
 		return
 	}
 	pr, err = os.FindProcess(pid)
 	if err != nil {
-		e = fmt.Errorf("%s: cannot find process by PID, reason -> %s", errLoc, err.Error())
+		e = fmt.Errorf(
+			"%s: cannot find process by PID, reason -> %s", errLoc, err.Error(),
+		)
 	}
 
 	return
@@ -246,15 +271,22 @@ func Start(timeout uint8) (e error) {
 //
 // This function can also be used when writing your own daemon actions.
 func Stop(process *os.Process) (e error) {
+	const errLoc = "daemonigo.Stop()"
 	if err := process.Signal(os.Interrupt); err != nil {
-		e = fmt.Errorf("daemonigo.Stop(): failed to send interrupt signal to %s, reason -> %s", AppName, err.Error())
+		e = fmt.Errorf(
+			"%s: failed to send interrupt signal to %s, reason -> %s",
+			errLoc, AppName, err.Error(),
+		)
 		return
 	}
 	for {
 		time.Sleep(200 * time.Millisecond)
 		switch isRunning, _, err := Status(); {
 		case err != nil:
-			e = fmt.Errorf("daemonigo.Stop(): checking status of %s failed, reason -> %s", AppName, err.Error())
+			e = fmt.Errorf(
+				"%s: checking status of %s failed, reason -> %s",
+				errLoc, AppName, err.Error(),
+			)
 			return
 		case !isRunning:
 			return

@@ -65,14 +65,19 @@ func init() {
 				return ch
 			}(process.Pid):
 			case <-time.After(10 * time.Second):
-				printStatusErr(fmt.Errorf("checking new process timed out, see application logs"))
+				printStatusErr(fmt.Errorf(
+					"checking new process timed out, see application logs",
+				))
 			}
 		}
 	})
 
 	// A simple program to test server during reloads.
 	var ms uint
-	flag.UintVar(&ms, "ms", 10, "frequency of requests in milliseconds, must be positive integer")
+	flag.UintVar(
+		&ms, "ms", 10,
+		"frequency of requests in milliseconds, must be positive integer",
+	)
 	daemon.SetAction("test", func() {
 		if ms == 0 {
 			ms = 10

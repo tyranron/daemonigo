@@ -60,14 +60,18 @@ func main() {
 	})
 	listener, err := net.Listen("tcp", ":8889")
 	if err != nil {
-		log.Fatalf("main(): failed to listen on port :8889, reason -> %s", err.Error())
+		log.Fatalf(
+			"main(): failed to listen on port :8889, reason -> %s", err.Error(),
+		)
 	}
 	defer listener.Close()
 	stoppedRunning := make(chan struct{})
 	go func() {
 		defer close(stoppedRunning)
 		if err := http.Serve(listener, nil); err != nil && !isErrClosing(err) {
-			log.Fatalf("main(): failed to serve listener, reason -> %s", err.Error())
+			log.Fatalf(
+				"main(): failed to serve listener, reason -> %s", err.Error(),
+			)
 		}
 	}()
 
@@ -76,7 +80,10 @@ func main() {
 
 	// Notifying parent process that we have started successfully.
 	if err := syscall.Kill(os.Getppid(), syscall.SIGUSR1); err != nil {
-		log.Fatalf("main(): notifying parent proccess failed, reason -> %s", err.Error())
+		log.Fatalf(
+			"main(): notifying parent proccess failed, reason -> %s",
+			err.Error(),
+		)
 	}
 
 	// Preventing main goroutine from closing while HTTP server is running.
