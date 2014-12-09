@@ -1,7 +1,8 @@
 daemonigo
 =========
 
-A simple library to daemonize [Go programming language](http://golang.org/) applications.
+A simple library to daemonize [Go programming language](http://golang.org/)
+applications.
 
 
 ## Installing
