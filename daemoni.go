@@ -179,9 +179,11 @@ func Status() (isRunning bool, pr *os.Process, e error) {
 	return
 }
 
-// TODO: description
-func StartDaemonCommand() (*exec.Cmd, error) {
-	const errLoc = "daemonigo.StartDaemonCommand()"
+// Prepares and returns command for starting daemonized process.
+//
+// This function can also be used when writing your own daemon actions.
+func StartCommand() (*exec.Cmd, error) {
+	const errLoc = "daemonigo.StartCommand()"
 	path, err := filepath.Abs(AppPath)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -203,7 +205,7 @@ func StartDaemonCommand() (*exec.Cmd, error) {
 // This function can also be used when writing your own daemon actions.
 func Start(timeout uint8) (e error) {
 	const errLoc = "daemonigo.Start()"
-	cmd, err := StartDaemonCommand()
+	cmd, err := StartCommand()
 	if err != nil {
 		return fmt.Errorf(
 			"%s: failed to create daemon start command, reason -> %s",

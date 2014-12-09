@@ -28,7 +28,7 @@ func init() {
 		fmt.Printf("Starting %s...", daemon.AppName)
 		sig := make(chan os.Signal)
 		signal.Notify(sig, syscall.SIGUSR1)
-		cmd, err := daemon.StartDaemonCommand()
+		cmd, err := daemon.StartCommand()
 		if err != nil {
 			printFailed(err)
 		}

@@ -22,3 +22,7 @@ See http://godoc.org/github.com/tyranron/daemonigo
 Or run:
 
     $ godoc github.com/tyranron/daemonigo
+
+
+## License
+[MIT License](LICENSE.md)
