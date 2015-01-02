@@ -130,7 +130,7 @@ func lockPidFile() (pidFile *os.File, err error) {
 	return file, err
 }
 
-// Unlocks PID file and closes it.
+// Unlocks PID file (locked by current daemonized process) and closes this file.
 //
 // This function can be useful for graceful restarts or other
 // untrivial scenarios, but usually there is no need to use it.
