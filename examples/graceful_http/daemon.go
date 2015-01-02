@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	daemon "github.com/tyranron/daemonigo"
 	"net/http"
 	"syscall"
 	"time"
+
+	daemon "github.com/tyranron/daemonigo"
 )
 
 func init() {

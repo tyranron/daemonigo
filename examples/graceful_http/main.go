@@ -34,7 +34,6 @@ package main
 
 import (
 	"fmt"
-	daemon "github.com/tyranron/daemonigo"
 	"log"
 	"net"
 	"net/http"
@@ -44,6 +43,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	daemon "github.com/tyranron/daemonigo"
 )
 
 // Name of environment variable, which holds
@@ -72,34 +73,37 @@ func main() {
 			log.Fatalf("main(): failed to listen, reason -> %s", err.Error())
 		}
 	}
+	httpServer := &http.Server{}
+
+	// Listen OS signals in separate goroutine.
+	go listenSignals(listener, httpServer)
+
+	// Creating a simple one-page http server.
+	PID := os.Getppid()
+	waiter := new(sync.WaitGroup)
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		waiter.Add(1)
+		fmt.Fprintf(w, "Hi! I am graceful http server! My PID is %d", PID)
+		waiter.Done()
+	})
+	waiter.Add(1)
+	go func() {
+		if err := httpServer.Serve(listener); err != nil && !isErrClosing(err) {
+			log.Fatalf(
+				"main(): failed to serve listener, reason -> %s", err.Error(),
+			)
+		}
+		waiter.Done()
+	}()
 
 	// If was started by "reload" option.
 	if hasPrev {
-		if err := syscall.Kill(os.Getppid(), syscall.SIGUSR1); err != nil {
+		if err := syscall.Kill(PID, syscall.SIGUSR1); err != nil {
 			log.Printf(
 				"main(): failed to notify parent daemon procces, reason -> %s",
 				err.Error(),
 			)
 		}
-	}
-
-	// Listen OS signals in separate goroutine.
-	go listenSignals(listener)
-
-	// Creating a simple one-page http server.
-	PID := syscall.Getpid()
-	waiter := new(sync.WaitGroup)
-	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		waiter.Add(1)
-		defer waiter.Done()
-		w.Write([]byte(
-			fmt.Sprintf("Hi! I am graceful http server! My PID is %d", PID),
-		))
-	})
-	if err := http.Serve(listener, nil); err != nil && !isErrClosing(err) {
-		log.Fatalf(
-			"main(): failed to serve listener, reason -> %s", err.Error(),
-		)
 	}
 
 	// Waiting all requests to be finished.
@@ -153,7 +157,7 @@ func isErrClosing(err error) bool {
 }
 
 // A goroutine which listens OS signals.
-func listenSignals(l net.Listener) {
+func listenSignals(l net.Listener, srv *http.Server) {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan,
 		syscall.SIGHUP, syscall.SIGINT,
@@ -163,7 +167,7 @@ func listenSignals(l net.Listener) {
 	for {
 		switch sig := <-sigChan; sig {
 		case syscall.SIGHUP:
-			if err := reload(l); err != nil {
+			if err := reload(l, srv); err != nil {
 				log.Println(err.Error())
 			}
 		default:
@@ -173,7 +177,7 @@ func listenSignals(l net.Listener) {
 }
 
 // Implements zero-downtime application reload.
-func reload(l net.Listener) error {
+func reload(l net.Listener, httpServer *http.Server) error {
 	const errLoc = "main.reload()"
 
 	// Making duplicate for socket descriptor
@@ -186,6 +190,7 @@ func reload(l net.Listener) error {
 		)
 	}
 	fd, err := syscall.Dup(int(file.Fd()))
+	file.Close()
 	if err != nil {
 		return fmt.Errorf(
 			"%s: failed to dup(2) listener, reason -> %s", errLoc, err.Error(),
@@ -214,20 +219,14 @@ func reload(l net.Listener) error {
 	// Waiting for notification from child process that it starts successfully.
 	// In real application it's better to move generation of chan for this case
 	// before calling cmd.Start() to be sure to catch signal in any case.
-	case <-func() chan struct{} {
-		sig, ch := make(chan os.Signal), make(chan struct{})
+	case <-func() <-chan os.Signal {
+		sig := make(chan os.Signal)
 		signal.Notify(sig, syscall.SIGUSR1)
-		go func() {
-			<-sig
-			ch <- struct{}{}
-		}()
-		return ch
+		return sig
 	}():
-		// Close current listener (stop server in fact).
-		l.Close()
 	// If child process stopped without sending signal.
 	case <-func() chan struct{} {
-		ch := make(chan struct{})
+		ch := make(chan struct{}, 1)
 		go func() {
 			cmd.Wait()
 			ch <- struct{}{}
@@ -242,5 +241,11 @@ func reload(l net.Listener) error {
 		)
 	}
 
+	// Dealing with keep-alive connections.
+	httpServer.SetKeepAlivesEnabled(false)
+	time.Sleep(100 * time.Millisecond)
+
+	// Close current listener (stop server in fact).
+	l.Close()
 	return err
 }
